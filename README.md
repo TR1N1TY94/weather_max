@@ -25,7 +25,7 @@ This script fetches the daily maximum temperature from both local ASOS stations 
   - `pytz`  
   - `colorama`  
   - `win10toast` (Windows only)
-- ** Pipenv:**
+- **Pipenv:**
   - ```bash
        pip install --user pipenv
 - **Notification Tools:**  
