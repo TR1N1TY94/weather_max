@@ -34,26 +34,24 @@ This script fetches the daily maximum temperature from both local ASOS stations 
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/yourusername/yourrepo.git
-   cd yourrepo
+   git clone https://github.com/TR1N1TY94/weather_max.git
+   cd weather_max
 
 2. **Install Dependencies using Pipenv:**
     `pipenv install`
     This command creates a virtual environment and installs the required packages as defined in `Pipfile`.
 
-3. **Activate the Virtual Environment:**
-    `pipenv shell`
-
-4. **Set up Notifications:**
+3. **Set up Notifications:**
 	- macOS:
-        No additional setup required.
+        No additional setup required. Uses `osascript`.
 	- Windows:
         `win10toast` is already included in the Pipfile.
 	- Linux:
         Install `notify-send`:
+        ```sudo apt-get install libnotify-bin```
 
-5. **Run the Script:**
-    `python yourscript.py`
+4. **Run the Script:**
+    `pipenv run python weather_max.py`
     The script will fetch data, display current conditions, and send notifications if the temperature rises within a short time frame. It updates automatically every minute.
 
 ## Notes:
