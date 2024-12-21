@@ -51,7 +51,7 @@ This script fetches the daily maximum temperature from both local ASOS stations 
         ```sudo apt-get install libnotify-bin```
 
 4. **Run the Script:**
-    `pipenv run python weather_max.py`
+    ```pipenv run python weather_max.py```
     The script will fetch data, display current conditions, and send notifications if the temperature rises within a short time frame. It updates automatically every minute.
 
 ## Notes:
