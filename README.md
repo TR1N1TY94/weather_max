@@ -56,6 +56,6 @@ This script fetches the daily maximum temperature from both local ASOS stations 
     `python yourscript.py`
     The script will fetch data, display current conditions, and send notifications if the temperature rises within a short time frame. It updates automatically every minute.
 
-**Notes**
+**Notes:**
 	- Ensure your system and timezone settings are correct. Local times are displayed based on each city’s timezone.
 	- To change the cities or data sources, edit the city_data and climate_urls dictionaries within the script.
