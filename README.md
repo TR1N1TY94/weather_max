@@ -27,7 +27,7 @@ This script fetches the daily maximum temperature from both local ASOS stations 
   - `win10toast` (Windows only)
 - **Pipenv:**
   - ```bash
-       pip install --user pipenv
+    pip3 install pipenv
 - **Notification Tools:**  
   - **macOS:** Uses built-in `osascript`
   - **Windows:** Uses `win10toast`  
