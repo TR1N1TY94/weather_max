@@ -7,6 +7,9 @@ import subprocess
 import sys
 import re
 
+from functools import partial
+from mac_notifications import client
+
 from colorama import Fore, Style, init
 
 # Initialize colorama for cross-platform colored output
@@ -68,8 +71,10 @@ def send_notification(city, message):
 
     if platform == "darwin":
         # macOS notification
-        applescript = f'display notification "{message}" with title "{title}"'
-        subprocess.call(["osascript", "-e", applescript])
+        client.create_notification(
+            title=title,
+            subtitle=message,
+        )
 
     elif "win" in platform:
         # Windows notification using win10toast if available

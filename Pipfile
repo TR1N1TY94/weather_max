@@ -10,6 +10,7 @@ python_version = ">=3.9"
 requests = "*"
 colorama = "*"
 pytz = "*"
+macos-notifications = { version = "*", markers = "sys_platform == 'darwin'" }
 win10toast = { version = "*", markers = "sys_platform == 'win32'" }
 
 [dev-packages]
