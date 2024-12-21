@@ -39,7 +39,7 @@ This script fetches the daily maximum temperature from both local ASOS stations 
 
 2. **Install Dependencies using Pipenv:**
     `pipenv install`
-    This command creates a virtual environment and installs the required packages as defined in Pipfile.
+    This command creates a virtual environment and installs the required packages as defined in `Pipfile`.
 
 3. **Activate the Virtual Environment:**
     `pipenv shell`
@@ -48,9 +48,9 @@ This script fetches the daily maximum temperature from both local ASOS stations 
 	- macOS:
         No additional setup required.
 	- Windows:
-        win10toast is already included in the Pipfile.
+        `win10toast` is already included in the Pipfile.
 	- Linux:
-        Install notify-send:
+        Install `notify-send`:
 
 5. **Run the Script:**
     `python yourscript.py`
@@ -58,4 +58,4 @@ This script fetches the daily maximum temperature from both local ASOS stations 
 
 ## Notes:
 - Ensure your system and timezone settings are correct. Local times are displayed based on each city’s timezone.
-- To change the cities or data sources, edit the city_data and climate_urls dictionaries within the script.
+- To change the cities or data sources, edit the `city_data` and `climate_urls` dictionaries within the script.
