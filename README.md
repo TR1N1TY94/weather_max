@@ -40,9 +40,9 @@ This script fetches the daily maximum temperature from both local ASOS stations 
    git clone https://github.com/TR1N1TY94/weather_max.git
    cd weather_max
 
-2. **Install Dependencies using Pipenv:**
+2. **Install Dependencies using Pipenv**
     `pipenv install`
-    This command creates a virtual environment and installs the required packages as defined in `Pipfile`.
+    This command creates a virtual environment and installs the required packages listed in `Pipfile`.
 
 3. **Set up Notifications:**
 	- macOS:

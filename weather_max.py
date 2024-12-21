@@ -59,11 +59,12 @@ def send_notification(city, message):
     """
     Send a notification to the user depending on the operating system:
     - macOS (darwin): uses AppleScript via osascript
-    - Windows (win): uses win10toast (must be installed)
-    - Linux (linux): uses notify-send command
+    - Windows (win): uses win10toast (if available)
+    - Linux (linux): uses notify-send
+    - Otherwise: prints to console
     """
     platform = sys.platform
-    title = "Temperature Alert"
+    title = f"Temperature Alert: {city}"
 
     if platform == "darwin":
         # macOS notification
@@ -71,32 +72,40 @@ def send_notification(city, message):
         subprocess.call(["osascript", "-e", applescript])
 
     elif "win" in platform:
-        # Windows notification using win10toast
-        # Make sure you have installed win10toast: pip install win10toast
-        from win10toast import ToastNotifier
-        toaster = ToastNotifier()
-        toaster.show_toast(title, message, duration=5, threaded=True)
+        # Windows notification using win10toast if available
+        try:
+            from win10toast import ToastNotifier
+            toaster = ToastNotifier()
+            toaster.show_toast(title, message, duration=5, threaded=True)
+        except ImportError:
+            # If win10toast not installed, fallback to console print
+            print(f"Notification: {title} - {message}")
 
     elif "linux" in platform:
         # Linux notification using notify-send
         subprocess.call(["notify-send", title, message])
 
-    # If another platform, you could print to console or do nothing
     else:
+        # Other platforms, fallback to console print
         print(f"Notification: {title} - {message}")
 
 # ---------------- Data Fetching Functions ----------------
 
-def fetch_max_temperature(url):
+def fetch_max_temperature(url, city):
     """
-    Fetch the max temperature for today from the Mesonet API.
+    Fetch the max temperature for today from the Mesonet API using the city's local date.
     Returns None if not found or an error occurred.
     """
     try:
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
-        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
+        # Determine the local date for the city
+        tz = pytz.timezone(city_data[city]["timezone"])
+        local_now = datetime.now(tz)
+        today = local_now.strftime('%Y-%m-%d')
+
         for record in data.get('data', []):
             if record.get('date') == today:
                 return record.get('max_tmpf')
@@ -107,7 +116,7 @@ def fetch_max_temperature(url):
 def fetch_climate_report(city):
     """
     Fetch the NOAA climate report and parse out the max temperature and time.
-    Handles times in formats like '1:44 PM' and '1136 AM' by inserting a colon if missing.
+    Handles times like '1:44 PM' and '1136 AM' by inserting a colon if missing.
     """
     url = climate_urls[city]
     try:
@@ -131,16 +140,16 @@ def fetch_climate_report(city):
                     am_pm = parts[3].upper() if parts[3].upper() in ["AM", "PM"] else None
 
                     if am_pm:
-                        # If time already has a colon, use it directly
+                        # If time already has a colon, use it
                         if re.match(r"\d{1,2}:\d{2}", time_str):
                             max_time = time_str + " " + am_pm
                         else:
                             # Insert a colon if missing
                             if len(time_str) == 3:
-                                # e.g., '736' -> '7:36'
+                                # '736' -> '7:36'
                                 time_str = time_str[0] + ":" + time_str[1:]
                             elif len(time_str) == 4:
-                                # e.g., '1136' -> '11:36'
+                                # '1136' -> '11:36'
                                 time_str = time_str[:2] + ":" + time_str[2:]
 
                             max_time = time_str + " " + am_pm
@@ -159,7 +168,7 @@ def fetch_all_cities():
     """
     results = {}
     for city, data in city_data.items():
-        max_temp = fetch_max_temperature(data["url"])
+        max_temp = fetch_max_temperature(data["url"], city)
         results[city] = max_temp
     return results
 
