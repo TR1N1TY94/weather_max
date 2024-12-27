@@ -18,14 +18,43 @@ init(autoreset=True)
 # ---------------- Configuration ----------------
 
 # City-specific Mesonet API endpoints and time zones
+# Added "current_url" to fetch `max_dayairtemp[F]` from the real-time JSON
 city_data = {
-    "Austin, TX": {"url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=TX_ASOS&station=AUS&month=12&year=2024", "timezone": "America/Chicago"},
-    "Denver, CO": {"url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=CO_ASOS&station=DEN&month=12&year=2024", "timezone": "America/Denver"},
-    "New York City, NY": {"url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=NY_ASOS&station=NYC&month=12&year=2024", "timezone": "America/New_York"},
-    "Chicago, IL": {"url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=IL_ASOS&station=MDW&month=12&year=2024", "timezone": "America/Chicago"},
-    "Houston, TX": {"url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=TX_ASOS&station=HOU&month=12&year=2024", "timezone": "America/Chicago"},
-    "Philadelphia, PA": {"url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=PA_ASOS&station=PHL&month=12&year=2024", "timezone": "America/New_York"},
-    "Miami, FL": {"url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=FL_ASOS&station=MIA&month=12&year=2024", "timezone": "America/New_York"},
+    "Austin, TX": {
+        "daily_url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=TX_ASOS&station=AUS&month=12&year=2024",
+        "current_url": "https://mesonet.agron.iastate.edu/json/current.py?network=TX_ASOS&station=AUS",
+        "timezone": "America/Chicago"
+    },
+    "Denver, CO": {
+        "daily_url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=CO_ASOS&station=DEN&month=12&year=2024",
+        "current_url": "https://mesonet.agron.iastate.edu/json/current.py?network=CO_ASOS&station=DEN",
+        "timezone": "America/Denver"
+    },
+    "Miami, FL": {
+        "daily_url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=FL_ASOS&station=MIA&month=12&year=2024",
+        "current_url": "https://mesonet.agron.iastate.edu/json/current.py?network=FL_ASOS&station=MIA",
+        "timezone": "America/New_York"
+    },
+    "New York City, NY": {
+        "daily_url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=NY_ASOS&station=NYC&month=12&year=2024",
+        "current_url": "https://mesonet.agron.iastate.edu/json/current.py?network=NY_ASOS&station=NYC",
+        "timezone": "America/New_York"
+    },
+    "Chicago, IL": {
+        "daily_url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=IL_ASOS&station=MDW&month=12&year=2024",
+        "current_url": "https://mesonet.agron.iastate.edu/json/current.py?network=IL_ASOS&station=MDW",
+        "timezone": "America/Chicago"
+    },
+    "Houston, TX": {
+        "daily_url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=TX_ASOS&station=HOU&month=12&year=2024",
+        "current_url": "https://mesonet.agron.iastate.edu/json/current.py?network=TX_ASOS&station=HOU",
+        "timezone": "America/Chicago"
+    },
+    "Philadelphia, PA": {
+        "daily_url": "https://mesonet.agron.iastate.edu/api/1/daily.json?network=PA_ASOS&station=PHL&month=12&year=2024",
+        "current_url": "https://mesonet.agron.iastate.edu/json/current.py?network=PA_ASOS&station=PHL",
+        "timezone": "America/New_York"
+    },
 }
 
 # NOAA climate product URLs
@@ -53,8 +82,24 @@ city_colors = [
 city_color_map = {city: color for city, color in zip(city_data.keys(), city_colors)}
 
 # Track ASOS and climate report temperatures over time
-temperature_history = {city: {"temp": None, "timestamp": None} for city in city_data.keys()}
-climate_temperature_history = {city: {"temp": None, "timestamp": None} for city in city_data.keys()}
+# Adding 'last_notified_temp' to handle the "don't notify more than once" scenario
+temperature_history = {
+    city: {
+        "temp": None,              # Last stored temperature
+        "timestamp": None,         # Last updated UTC time
+        "last_notified_temp": None # Last temperature that triggered a notification
+    } 
+    for city in city_data.keys()
+}
+
+climate_temperature_history = {
+    city: {
+        "temp": None,              # Last stored climate temperature
+        "timestamp": None,         # Last updated UTC time
+        "last_notified_temp": None # Last climate temperature that triggered a notification
+    } 
+    for city in city_data.keys()
+}
 
 # ---------------- Notification System ----------------
 
@@ -96,13 +141,13 @@ def send_notification(city, message):
 
 # ---------------- Data Fetching Functions ----------------
 
-def fetch_max_temperature(url, city):
+def fetch_daily_temp(daily_url, city):
     """
-    Fetch the max temperature for today from the Mesonet API using the city's local date.
+    Fetch the max temperature for today from the Mesonet daily API using the city's local date.
     Returns None if not found or an error occurred.
     """
     try:
-        response = requests.get(url)
+        response = requests.get(daily_url)
         response.raise_for_status()
         data = response.json()
 
@@ -117,6 +162,55 @@ def fetch_max_temperature(url, city):
         return None
     except requests.RequestException:
         return None
+
+def fetch_current_max_dayairtemp(current_url):
+    """
+    Fetch the 'max_dayairtemp[F]' value from the 'last_ob' section 
+    of the real-time Mesonet JSON (e.g. https://mesonet.agron.iastate.edu/json/current.py?network=TX_ASOS&station=AUS).
+    Returns None if not found or an error occurred.
+    """
+    try:
+        response = requests.get(current_url)
+        response.raise_for_status()
+        data = response.json()
+
+        # JSON structure:
+        # {
+        #   "last_ob": {
+        #       "max_dayairtemp[F]": 74.0,
+        #       ...
+        #   }
+        # }
+        last_ob = data.get("last_ob", {})
+        return last_ob.get("max_dayairtemp[F]", None)
+    except requests.RequestException:
+        return None
+
+def fetch_max_temperature(city):
+    """
+    Combines the daily Mesonet 'max_tmpf' and the current 'max_dayairtemp[F]' 
+    and returns the greater of the two as the current daily max temperature.
+    """
+    daily_url = city_data[city]["daily_url"]
+    current_url = city_data[city]["current_url"]
+
+    daily_temp = fetch_daily_temp(daily_url, city)
+    current_temp = fetch_current_max_dayairtemp(current_url)
+
+    # If both are None, result is None
+    if daily_temp is None and current_temp is None:
+        return None
+
+    # Convert to float if needed (the daily_temp might come back as an int or float)
+    vals = []
+    for val in (daily_temp, current_temp):
+        try:
+            vals.append(float(val))
+        except (TypeError, ValueError):
+            pass
+
+    # Return the maximum of all valid numeric values
+    return max(vals) if vals else None
 
 def fetch_climate_report(city):
     """
@@ -168,12 +262,12 @@ def fetch_climate_report(city):
 
 def fetch_all_cities():
     """
-    Fetch the max temperatures for all cities from the Mesonet API.
+    Fetch the daily max temperatures for all cities by combining daily and current endpoints.
     Returns a dictionary of city -> temperature.
     """
     results = {}
-    for city, data in city_data.items():
-        max_temp = fetch_max_temperature(data["url"], city)
+    for city in city_data.keys():
+        max_temp = fetch_max_temperature(city)
         results[city] = max_temp
     return results
 
@@ -189,49 +283,71 @@ def get_local_time(city):
 
 def notify_temperature_change(city, current_temp):
     """
-    Notify if the ASOS temperature for a city has increased within the last 5 minutes.
-    Also updates the temperature history.
+    Notify if the ASOS temperature for a city has increased 
+    (strictly greater) within the last 5 minutes, and only once for that temp.
     """
     previous_data = temperature_history[city]
     previous_temp = previous_data["temp"]
     previous_timestamp = previous_data["timestamp"]
+    last_notified_temp = previous_data["last_notified_temp"]
 
-    if previous_temp is not None and isinstance(current_temp, (int, float)) and previous_temp < current_temp:
+    # Only proceed if current_temp is numeric
+    if not isinstance(current_temp, (int, float)):
+        return ""
+
+    # 1) Check if we have a valid previous temperature
+    # 2) Check if current_temp > previous_temp (temp has gone up)
+    # 3) Check if we haven't already notified for this same temperature
+    if (previous_temp is not None 
+        and current_temp > previous_temp 
+        and current_temp != last_notified_temp):
+        
         time_diff = datetime.now(timezone.utc) - previous_timestamp
         if time_diff <= timedelta(minutes=5):
             message = f"ASOS Temperature in {city} increased to {current_temp}°F (from {previous_temp}°F)."
             send_notification(city, message)
+            # Record that we have notified about this particular temperature
+            previous_data["last_notified_temp"] = current_temp
             return f"(^ from {previous_temp} in last {int(time_diff.total_seconds() // 60)} minutes)"
-    
-    if isinstance(current_temp, (int, float)):
-        temperature_history[city] = {"temp": current_temp, "timestamp": datetime.now(timezone.utc)}
+
+    # Update main temperature/time if it's numeric
+    temperature_history[city]["temp"] = current_temp
+    temperature_history[city]["timestamp"] = datetime.now(timezone.utc)
+
     return ""
 
 def notify_climate_temperature_change(city, current_temp):
     """
-    Notify if the Climate Report temperature for a city has increased within the last 5 minutes.
-    Also updates the climate temperature history.
+    Notify if the Climate Report temperature for a city has increased within the last 5 minutes,
+    and only once for that temp.
     """
     previous_data = climate_temperature_history[city]
     previous_temp = previous_data["temp"]
     previous_timestamp = previous_data["timestamp"]
+    last_notified_temp = previous_data["last_notified_temp"]
 
-    # Convert current_temp to int if possible
+    # Convert current_temp (str) to int if possible
     try:
         current_temp_val = int(current_temp)
     except (ValueError, TypeError):
         return ""
 
-    if previous_temp is not None and isinstance(current_temp_val, int) and previous_temp < current_temp_val:
+    if (previous_temp is not None 
+        and current_temp_val > previous_temp 
+        and current_temp_val != last_notified_temp):
+        
         time_diff = datetime.now(timezone.utc) - previous_timestamp
-        if time_diff <= timedelta(minutes=1):
+        if time_diff <= timedelta(minutes=5):
             message = f"Climate Report Temp in {city} increased to {current_temp_val}°F (from {previous_temp}°F)."
             send_notification(city, message)
-        if time_diff <= timedelta(minutes=5):
+            # Record that we have notified about this particular temperature
+            previous_data["last_notified_temp"] = current_temp_val
             return f"(Climate: ^ from {previous_temp} in last {int(time_diff.total_seconds() // 60)} minutes)"
-    
+
     if isinstance(current_temp_val, int):
-        climate_temperature_history[city] = {"temp": current_temp_val, "timestamp": datetime.now(timezone.utc)}
+        climate_temperature_history[city]["temp"] = current_temp_val
+        climate_temperature_history[city]["timestamp"] = datetime.now(timezone.utc)
+
     return ""
 
 def clear_console():
@@ -247,7 +363,7 @@ def main():
         clear_console()
         print(f"{Style.BRIGHT}Fetching data at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC\n")
         
-        # Fetch today's ASOS max temps
+        # Fetch today's ASOS max temps from both daily + current JSON (combined)
         city_temperatures = fetch_all_cities()
 
         for city, temp in city_temperatures.items():
@@ -268,8 +384,12 @@ def main():
             if isinstance(temp, (int, float)):
                 notification = notify_temperature_change(city, temp)
 
-            # Print results
-            print(f"{color}{city} (Local Time: {local_time}): {temp_color}{climate_report_str} {climate_notification} / {temp_color}ASOS Current Max Temp: {Style.BRIGHT}{temp}{Style.RESET_ALL} {notification}")
+            # Print results to console
+            print(
+                f"{color}{city} (Local Time: {local_time}): "
+                f"{temp_color}{climate_report_str} {climate_notification} / "
+                f"{temp_color}ASOS Current Max Temp: {Style.BRIGHT}{temp}{Style.RESET_ALL} {notification}"
+            )
 
         print(f"\n{Style.BRIGHT}Updating in 1 minute...\n")
         time.sleep(60)
