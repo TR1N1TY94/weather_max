@@ -283,38 +283,42 @@ def get_local_time(city):
 
 def notify_temperature_change(city, current_temp):
     """
-    Notify if the ASOS temperature for a city has increased 
-    (strictly greater) within the last 5 minutes, and only once for that temp.
+    Show in the Terminal if the ASOS temperature for a city has increased 
+    (strictly greater) within the last 5 minutes, but only send a pop-up
+    notification once per unique temperature jump.
     """
     previous_data = temperature_history[city]
     previous_temp = previous_data["temp"]
     previous_timestamp = previous_data["timestamp"]
     last_notified_temp = previous_data["last_notified_temp"]
 
-    # Only proceed if current_temp is numeric
     if not isinstance(current_temp, (int, float)):
         return ""
 
-    # 1) Check if we have a valid previous temperature
-    # 2) Check if current_temp > previous_temp (temp has gone up)
-    # 3) Check if we haven't already notified for this same temperature
-    if (previous_temp is not None 
-        and current_temp > previous_temp 
-        and current_temp != last_notified_temp):
-        
+    # We'll build a suffix text we can print in the Terminal if there's an increase
+    increase_suffix = ""
+
+    # Always check if the temperature has risen since the last reading
+    if previous_temp is not None and current_temp > previous_temp:
         time_diff = datetime.now(timezone.utc) - previous_timestamp
         if time_diff <= timedelta(minutes=5):
-            message = f"ASOS Temperature in {city} increased to {current_temp}°F (from {previous_temp}°F)."
-            send_notification(city, message)
-            # Record that we have notified about this particular temperature
-            previous_data["last_notified_temp"] = current_temp
-            return f"(^ from {previous_temp} in last {int(time_diff.total_seconds() // 60)} minutes)"
+            # We'll always *show* in the Terminal if it's gone up in the last 5 minutes
+            increase_suffix = f"(^ from {previous_temp}°F in last {int(time_diff.total_seconds() // 60)} minutes)"
 
-    # Update main temperature/time if it's numeric
+            # But only send a notification if we haven't notified for this temp before
+            if current_temp != last_notified_temp:
+                message = (
+                    f"ASOS Temperature in {city} increased to {current_temp}°F "
+                    f"(from {previous_temp}°F)."
+                )
+                send_notification(city, message)
+                previous_data["last_notified_temp"] = current_temp
+
+    # Update the temperature/time for this city 
     temperature_history[city]["temp"] = current_temp
     temperature_history[city]["timestamp"] = datetime.now(timezone.utc)
 
-    return ""
+    return increase_suffix
 
 def notify_climate_temperature_change(city, current_temp):
     """
@@ -392,7 +396,7 @@ def main():
             )
 
         print(f"\n{Style.BRIGHT}Updating in 1 minute...\n")
-        time.sleep(60)
+        time.sleep(30)
 
 if __name__ == "__main__":
     main()
