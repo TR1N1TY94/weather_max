@@ -224,9 +224,10 @@ def notify_climate_temperature_change(city, current_temp):
 
     if previous_temp is not None and isinstance(current_temp_val, int) and previous_temp < current_temp_val:
         time_diff = datetime.now(timezone.utc) - previous_timestamp
-        if time_diff <= timedelta(minutes=5):
+        if time_diff <= timedelta(minutes=1):
             message = f"Climate Report Temp in {city} increased to {current_temp_val}°F (from {previous_temp}°F)."
             send_notification(city, message)
+        if time_diff <= timedelta(minutes=5):
             return f"(Climate: ^ from {previous_temp} in last {int(time_diff.total_seconds() // 60)} minutes)"
     
     if isinstance(current_temp_val, int):
